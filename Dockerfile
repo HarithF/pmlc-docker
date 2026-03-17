@@ -9,23 +9,24 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
-        wget \
+        cmake \
         git \
         neovim \
-        gcc \
-        g++ \
-        g++-14 \
-        llvm-20-tools \
-        clang-20 \
+        g++-15 \
+        llvm-21 \
+        llvm-21-tools \
+        clang-21 \
         graphviz \
         doxygen \
         texlive \
         python3-pandas \
         python3-psutil \
+        python3-pip \
         bash && \
     rm -rf /var/lib/apt/lists/* && \
-    sudo pip install lit psutil && \
-    sudo ln -s /usr/bin/FileCheck-20 /usr/local/bin/FileCheck
+    pip3 install lit && \
+    ln -s /usr/bin/FileCheck-21 /usr/local/bin/FileCheck && \
+    ln -s /usr/bin/opt-21 /usr/local/bin/opt
 
 # create pldi user
 RUN useradd -m -u 1000 pldi
@@ -40,5 +41,24 @@ ENV PATH="/home/pldi/.elan/bin:${PATH}"
 RUN elan default stable
 RUN lean --version && lake --version
 
+# prepare repos
+COPY --chown=pldi:pldi ../bench-mim/ /home/pldi/mim/
+COPY --chown=pldi:pldi ../lambda-graph/ /home/pldi/lambda-graph/
+
 # Default command
-CMD ["/bin/bash"]
+CMD ["/bin/bash", "-c", "\
+cat << 'EOF'\n\
+Welcome to the MimIR artifact\n\
+\n\
+Quick start:\n\
+    > cd mim\n\
+    > ./build_all.sh                                                  # required only once\n\
+    > ./run_benchmarks.py                                             # limimted reproduction\n\
+    > ./run_benchmarks.py --full-iters                                # reproduce all numbers\n\
+    > ./run_benchmarks.py --remove-llvm --full-iters --warmups --runs # full reproduction (takes 10+ hours)\n\
+    >\n\
+    > cd lambda-graph\n\
+    > lake build                                                      # Lean development of all lemmas and theorems\n\
+\n\
+EOF\n\
+exec /bin/bash"]
