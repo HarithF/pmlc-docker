@@ -12,6 +12,7 @@ RUN apt-get update && \
         gdb \
         ca-certificates \
         curl \
+        wget \
         cmake \
         git \
         neovim \
@@ -20,10 +21,10 @@ RUN apt-get update && \
         llvm-21 \
         llvm-21-tools \
         clang-21 \
-        graphviz \
-        doxygen \
         texlive \
         texlive-latex-extra \
+        graphviz \
+        ghostscript \
         python3-pandas \
         python3-psutil \
         python3-pip \
@@ -37,8 +38,17 @@ RUN apt-get update && \
     ln -s /usr/bin/FileCheck-21 /usr/local/bin/FileCheck && \
     ln -s /usr/bin/opt-21 /usr/local/bin/opt
 
-# create pldi user
+RUN cd /root && wget https://www.doxygen.nl/files/doxygen-1.13.2.linux.bin.tar.gz -O doxygen.tar.gz && \
+    tar xf doxygen.tar.gz && \
+    ln -s /root/doxygen-1.13.2/bin/doxygen        /usr/local/bin/doxygen        && \
+    ln -s /root/doxygen-1.13.2/bin/doxyindexer    /usr/local/bin/doxyindexer    && \
+    ln -s /root/doxygen-1.13.2/bin/doxysearch.cgi /usr/local/bin/doxysearch.cgi && \
+    ln -s /root/doxygen-1.13.2/bin/doxywizard     /usr/local/bin/doxywizard
+
+# create pldi user, give sudo rights, and test sudo access
 RUN useradd -m pldi
+RUN echo "pldi ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
+    su - pldi -c "sudo -n true" && echo "sudo works!" || echo "sudo still needs password"
 USER pldi
 WORKDIR /home/pldi
 
