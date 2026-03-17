@@ -30,33 +30,27 @@ RUN apt-get update && \
         python3-pip \
         bash && \
     rm -rf /var/lib/apt/lists/* && \
-    pip3 install --break-system-packages lit && \
-    ln -s /usr/bin/gcc-15 /usr/local/bin/gcc && \
-    ln -s /usr/bin/g++-15 /usr/local/bin/g++ && \
-    ln -s /usr/bin/clang-15 /usr/local/bin/clang && \
-    ln -s /usr/bin/clang++-15 /usr/local/bin/clang++ && \
+    pip3 install --break-system-packages lit             && \
+    ln -s /usr/bin/gcc-15       /usr/local/bin/gcc       && \
+    ln -s /usr/bin/g++-15       /usr/local/bin/g++       && \
+    ln -s /usr/bin/clang-21     /usr/local/bin/clang     && \
+    ln -s /usr/bin/clang++-21   /usr/local/bin/clang++   && \
     ln -s /usr/bin/FileCheck-21 /usr/local/bin/FileCheck && \
-    ln -s /usr/bin/opt-21 /usr/local/bin/opt
+    ln -s /usr/bin/opt-21       /usr/local/bin/opt
 
-RUN cd /root && wget https://www.doxygen.nl/files/doxygen-1.13.2.linux.bin.tar.gz -O doxygen.tar.gz && \
+RUN cd /usr/local/ && wget https://www.doxygen.nl/files/doxygen-1.13.2.linux.bin.tar.gz -O doxygen.tar.gz && \
     tar xf doxygen.tar.gz && \
-    ln -s /root/doxygen-1.13.2/bin/doxygen        /usr/local/bin/doxygen        && \
-    ln -s /root/doxygen-1.13.2/bin/doxyindexer    /usr/local/bin/doxyindexer    && \
-    ln -s /root/doxygen-1.13.2/bin/doxysearch.cgi /usr/local/bin/doxysearch.cgi && \
-    ln -s /root/doxygen-1.13.2/bin/doxywizard     /usr/local/bin/doxywizard
+    ln -s /usr/local/doxygen-1.13.2/bin/doxygen        /usr/local/bin/doxygen        && \
+    ln -s /usr/local/doxygen-1.13.2/bin/doxyindexer    /usr/local/bin/doxyindexer    && \
+    ln -s /usr/local/doxygen-1.13.2/bin/doxysearch.cgi /usr/local/bin/doxysearch.cgi && \
+    ln -s /usr/local/doxygen-1.13.2/bin/doxywizard     /usr/local/bin/doxywizard
 
-# create pldi user, give sudo rights, and test sudo access
-RUN useradd -m pldi
-RUN echo "pldi ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
-    su - pldi -c "sudo -n true" && echo "sudo works!" || echo "sudo still needs password"
-USER pldi
-WORKDIR /home/pldi
+USER ubuntu
+WORKDIR /home/ubuntu
 
 # install Lean
 RUN curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y
-
 ENV PATH="/home/pldi/.elan/bin:${PATH}"
-
 RUN elan default stable
 RUN lean --version && lake --version
 
