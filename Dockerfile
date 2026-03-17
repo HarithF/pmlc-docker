@@ -1,10 +1,9 @@
-# Use the latest Ubuntu LTS base image
 FROM ubuntu:25.10
 
 # Avoid interactive prompts during package installs
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Update packages and install basic utilities
+# Update packages and install build tools, compilers, and utilities
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
@@ -39,7 +38,7 @@ RUN apt-get update && \
     ln -s /usr/bin/opt-21       /usr/local/bin/opt
 
 RUN cd /usr/local/ && wget https://www.doxygen.nl/files/doxygen-1.13.2.linux.bin.tar.gz -O doxygen.tar.gz && \
-    tar xf doxygen.tar.gz && \
+    tar xf doxygen.tar.gz && && rm doxygen.tar.gz && \
     ln -s /usr/local/doxygen-1.13.2/bin/doxygen        /usr/local/bin/doxygen        && \
     ln -s /usr/local/doxygen-1.13.2/bin/doxyindexer    /usr/local/bin/doxyindexer    && \
     ln -s /usr/local/doxygen-1.13.2/bin/doxysearch.cgi /usr/local/bin/doxysearch.cgi && \
@@ -67,8 +66,8 @@ Quick start:\n\
     cd mim\n\
     ./build_all.sh                                                  # required only once\n\
     ./run_benchmarks.py                                             # limited reproduction\n\
-    ./run_benchmarks.py --full-iters                                # reproduce all numbers\n\
-    ./run_benchmarks.py --remove-llvm --full-iters --warmups --runs # full reproduction (takes 10+ hours)\n\
+    ./run_benchmarks.py --all-iters                                 # reproduce all numbers\n\
+    ./run_benchmarks.py --remove-llvm --all-iters --warmups --runs  # full reproduction (takes 10+ hours)\n\
     \n\
     cd lambda-graph\n\
     lake build                                                      # Lean development of all lemmas and theorems\n\

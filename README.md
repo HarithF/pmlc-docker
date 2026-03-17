@@ -12,7 +12,7 @@ cd ../lambda-graph
 lake build                            # Lean development
 ```
 This produces a reduced version of Fig. 6 in ~1 hour.
-The Lean build only takes a few minutes.
+The Lean build takes only a few minutes.
 
 ### Resume Work
 
@@ -41,7 +41,7 @@ Each row tests a synthetic program whose size is doubled with every tick on the 
 3. Loop Nest
 The y-axis depicts runtime in micro seconds.
 
-Each plot tests two different set implementation that are used to implement the algorithms above:
+Each plot tests two different set implementations that are used to implement the algorithms above:
 * [immer](https://sinusoid.es/immer/): mutable and persistent data structures for C++ - value semantics at scale
 * an indexed trie: a new data structure presented in the paper
 
@@ -69,7 +69,7 @@ Inside the docker image:
 cd mim
 ./build_all.sh
 ```
-This will take around 10 minutes and you only need to do this once.
+This takes around 10 minutes and only needs to be done once.
 
 Our fork of MimIR contains `#ifdef`s for the three different set implementations.
 For this reason, the build script will build three sets of binaries:
@@ -94,23 +94,23 @@ For this reason, the benchmark script provides a couple of options that drastica
 3. As above but includes the whole measurement range.
     * Takes around 2 hours.
    ```sh
-   ./run_benchmarks.py --iters
+   ./run_benchmarks.py --all-iters
    ```
 4. As above but all tests are run 9 times.
     * min, max, and median will be computed and plotted
-    * Takes **9 times** as long as 3.!
+    * Takes 9× as long as option 3.
    ```sh
-   ./run_benchmarks.py --iters --runs
+   ./run_benchmarks.py --all-iters --runs
    ```
 5. As above but includes 3 warm up runs before doing the actual measurements.
-    * Takes **14 times** as long as 3.!
+    * Takes 14× as long as option 3.
     ```sh
-   ./run_benchmarks.py --iters --runs --warmups
+   ./run_benchmarks.py --all-iters --runs --warmups
    ```
 6. As above but will freshly generate the `*.ll` files.
     * **Adds another ~2 hours**.
     ```sh
-   ./run_benchmarks.py --iters --runs --warmups --remove-llvm
+   ./run_benchmarks.py --all-iters --runs --warmups --remove-llvm
    ```
 Each run of this script will build with the gathered data a new plot that you can inspect from outside of docker like this:
 ```sh
@@ -124,8 +124,8 @@ Note that the colors and style changed compared to the original Fig. 6 in the pa
 The `immer` and `std::set` implementations eventually run out of memory (tested on a machine with 32GiB RAM).
 Furthermore, the runtime in the last row explodes around $2^{11}$.
 For this reason, some of the plots are capped and don't range all the way up to $2^{20}$.
-If you experience crashes with `--iters`, you are running out of memory and need to reduce the number of iterations of the respective test in the global `ITERS` variable in the `run_benchmarks.py` script.
-However, the reduced number of iterations (**without** `--iter`) are good enough to verify the trends of the plots.
+If you experience crashes with `--all-iters`, you are running out of memory and need to reduce the number of iterations of the respective test in the global `ITERS` variable in the `run_benchmarks.py` script.
+However, the reduced number of iterations (**without** `--all-iter`) are good enough to verify the trends of the plots.
 
 ### Documentation
 
