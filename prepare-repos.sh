@@ -2,6 +2,7 @@
 set -eu
 
 git clone --depth=1 --recursive -b benchmark git@github.com:leissa/mim.git
+cp ../bench-mim/*.ll mim/
 cd mim
 find . -name ".git" -type d -exec rm -rf {} +
 rm -f .gitmodules
