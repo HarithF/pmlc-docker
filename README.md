@@ -3,15 +3,24 @@
 ## Quick Reproduction (Recommended)
 
 ```sh
-docker load < mimir.tar.gz # load the image
+docker load < mimir.tar.gz            # load the image
 docker run -it --name mimir-run mimir # run the container named 'mimir-run'
 cd mim
 ./build_all.sh
-./run_benchmarks.py        # generates mim/tex/bench.pdf
+./run_benchmarks.py                   # generates mim/tex/bench.pdf
 cd ../lambda-graph
-lake build                  # lean development
+lake build                            # Lean development
 ```
 This produces a reduced version of Fig. 6 in ~1 hour.
+The Lean build only takes a few minutes.
+
+### Resume Work
+
+If you exit the container, you can resume work using:
+```sh
+docker start mimir-run
+docker exec -it mimir-run /bin/bash
+```
 
 ## General Information
 
@@ -48,8 +57,8 @@ For this reason, we have updated Fig. 6 with the following data:
     * inlining (both with and without additional optimizations that simulate MimIR's on-the-fly optimizations) against MimIR's $\beta$-reduction.
 You can inspect the update like this:
 ```sh
-docker cp mimir-run:/home/ubuntu/mim/tex/bench.pdf .
-xdg-open bench.pdf
+docker cp mimir-run:/home/ubuntu/mim/tex/reference.pdf .
+xdg-open reference.pdf
 ```
 Finally, we added in each plot a guide to better judge the asymptotic behavior of the plots in the double-log scale.
 
@@ -110,6 +119,14 @@ xdg-open bench.pdf
 ```
 Note that the colors and style changed compared to the original Fig. 6 in the paper.
 
+#### Memory Constraints
+
+The `immer` and `std::set` implementations eventually run out of memory (tested on a machine with 32GiB RAM).
+Furthermore, the runtime in the last row explodes around $2^{11}$.
+For this reason, some of the plots are capped and don't range all the way up to $2^{20}$.
+If you experience crashes with `--iters`, you are running out of memory and need to reduce the number of iterations of the respective test in the global `ITERS` variable in the `run_benchmarks.py` script.
+However, the reduced number of iterations (**without** `--iter`) are good enough to verify the trends of the plots.
+
 ### Documentation
 
 The project documentation will also be built that you can inspect like this:
@@ -132,7 +149,7 @@ Feel free to poke around!
 ## Lambda-Graph
 
 Enter the docker image and verify via:
-```
+```sh
 cd lambda-graph
 lake build
 ```
