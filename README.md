@@ -50,11 +50,17 @@ The reviewers, however, asked for more data:
 >       - This should include some justification that the clever data structures used are necessary;
 >       - This should include a comparison with standard compilers, e.g. LLVM.
 
-For this reason, we have updated Fig. 6 with the following data:
-* a naive `std::set` implementation
-* we compile all MimIR examples to LLVM and compare
-    * LLVM's dominance analysis against MimIR's free variable computation
-    * inlining (both with and without additional optimizations that simulate MimIR's on-the-fly optimizations) against MimIR's $\beta$-reduction.
+
+For this reason, we have updated Fig. 6 with the following data:
+* A naive `std::set` implementation.
+* We compile all MimIR examples to LLVM and compare
+    * LLVM's dominance analysis against MimIR's free variable computation.
+    * Inlining (both with and without additional optimizations that simulate MimIR's on‑the‑fly optimizations) against MimIR's $\beta$‑reduction.
+
+We measure LLVM performance by extracting the wall‑clock time from `opt`.
+These measurements are less precise than our native benchmarks.
+As a result, the lower end of the LLVM‑related plots is either missing or noticeably *noisy*.
+
 You can inspect the update like this:
 ```sh
 docker cp mimir-run:/home/ubuntu/mim/tex/reference.pdf .
