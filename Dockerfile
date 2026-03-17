@@ -7,6 +7,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Update packages and install basic utilities
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+        build-essential \
+        sudo \
+        gdb \
         ca-certificates \
         curl \
         cmake \
@@ -20,19 +23,22 @@ RUN apt-get update && \
         graphviz \
         doxygen \
         texlive \
+        texlive-latex-extra \
         python3-pandas \
         python3-psutil \
         python3-pip \
         bash && \
     rm -rf /var/lib/apt/lists/* && \
-    pip3 install lit && \
+    pip3 install --break-system-packages lit && \
     ln -s /usr/bin/gcc-15 /usr/local/bin/gcc && \
     ln -s /usr/bin/g++-15 /usr/local/bin/g++ && \
+    ln -s /usr/bin/clang-15 /usr/local/bin/clang && \
+    ln -s /usr/bin/clang++-15 /usr/local/bin/clang++ && \
     ln -s /usr/bin/FileCheck-21 /usr/local/bin/FileCheck && \
     ln -s /usr/bin/opt-21 /usr/local/bin/opt
 
 # create pldi user
-RUN useradd -m -u 1000 pldi
+RUN useradd -m pldi
 USER pldi
 WORKDIR /home/pldi
 
