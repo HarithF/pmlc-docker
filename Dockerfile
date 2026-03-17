@@ -12,6 +12,7 @@ RUN apt-get update && \
         cmake \
         git \
         neovim \
+        gcc-15 \
         g++-15 \
         llvm-21 \
         llvm-21-tools \
@@ -25,6 +26,8 @@ RUN apt-get update && \
         bash && \
     rm -rf /var/lib/apt/lists/* && \
     pip3 install lit && \
+    ln -s /usr/bin/gcc-15 /usr/local/bin/gcc && \
+    ln -s /usr/bin/g++-15 /usr/local/bin/g++ && \
     ln -s /usr/bin/FileCheck-21 /usr/local/bin/FileCheck && \
     ln -s /usr/bin/opt-21 /usr/local/bin/opt
 
@@ -42,8 +45,8 @@ RUN elan default stable
 RUN lean --version && lake --version
 
 # prepare repos
-COPY --chown=pldi:pldi ../bench-mim/ /home/pldi/mim/
-COPY --chown=pldi:pldi ../lambda-graph/ /home/pldi/lambda-graph/
+COPY --chown=pldi:pldi mim /home/pldi/mim/
+COPY --chown=pldi:pldi lambda-graph/ /home/pldi/lambda-graph/
 
 # Default command
 CMD ["/bin/bash", "-c", "\
