@@ -2,7 +2,7 @@
 
 [TOC]
 
-## Quick Reproduction (Recommended)
+## Getting Started Guide
 
 ```sh
 docker load < mimir.tar.gz            # load the image
@@ -24,13 +24,15 @@ docker start mimir-run
 docker exec -it mimir-run /bin/bash
 ```
 
-## General Information
+## Step-by-Step Instructions
+
+### General Information
 
 The artifact consists of two parts:
 1. The research compiler IR *MimIR* that we used to create Fig. 6 in the paper.
 2. A Lean development *lambda-graph* that verifies all lemmas and theorems in the paper.
 
-## MimIR
+### MimIR
 
 The original Fig. 6 in the paper consists of 3 x 3 plots:
 Each column benchmarks the implementation of one algorithm in the compiler:
@@ -71,7 +73,7 @@ xdg-open reference.pdf
 ```
 Finally, we added in each plot a guide to better judge the asymptotic behavior of the plots in the double-log scale.
 
-### Building
+#### Building
 
 Inside the docker image:
 ```sh
@@ -86,7 +88,7 @@ For this reason, the build script will build three sets of binaries:
 * `~/mim/release_immer/bin`
 * `~/mim/release_set/bin`
 
-### Benchmarks
+#### Benchmarks
 
 Running the full benchmark suite requires 15+ hours on a modern computer.
 For this reason, the benchmark script provides a couple of options that drastically reduce the time.
@@ -128,7 +130,7 @@ xdg-open bench.pdf
 ```
 Note that the colors and style changed compared to the original Fig. 6 in the paper.
 
-#### Memory Constraints
+##### Memory Constraints
 
 The `immer` and `std::set` implementations eventually run out of memory (tested on a machine with 32GiB RAM).
 Furthermore, the runtime in the last row explodes around $2^{11}$.
@@ -136,7 +138,7 @@ For this reason, some of the plots are capped and don't range all the way up to 
 If you experience crashes with `--all-iters`, you are running out of memory and need to reduce the number of iterations of the respective test in the global `ITERS` variable in the `run_benchmarks.py` script.
 However, the reduced number of iterations (**without** `--all-iter`) are good enough to verify the trends of the plots.
 
-### Documentation
+#### Documentation
 
 The project documentation will also be built that you can inspect like this:
 ```sh
@@ -144,7 +146,7 @@ docker cp mimir-run:/home/ubuntu/mim/release_trie/html ./html
 xdg-open html/index.html
 ```
 
-### Reusability
+#### Reusability
 
 The build command above also builds the test suites that you can invoke like this from inside docker:
 ```sh
@@ -155,7 +157,7 @@ make lit  # lit test suite
 You can find the `lit` tests in `mim/lit`.
 Feel free to poke around!
 
-## Lambda-Graph
+### Lambda-Graph
 
 Enter the docker image and verify via:
 ```sh
