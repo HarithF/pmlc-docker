@@ -60,7 +60,8 @@ For this reason, we have updated Fig. 6 with the following data:
     * LLVM's dominance analysis against MimIR's free variable computation.
     * Inlining (both with and without additional optimizations that simulate MimIR's on‑the‑fly optimizations) against MimIR's $\beta$‑reduction.
 
-Finally, we included a small experiment using a compiled regular expression, whose performance data is extracted by `bench.tex` to generate the short paragraph on the other page of `reference.pdf` and `bench.pdf`.
+Finally, we include a small experiment based on a compiled regular expression.
+Its performance data is extracted by `bench.tex` and used to generate the paragraph in `reference.pdf` and `bench.pdf`.
 
 We measure LLVM performance by extracting the wall‑clock time from `opt`.
 These measurements are less precise than our MimIR benchmarks.
