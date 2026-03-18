@@ -44,6 +44,7 @@ RUN cd /usr/local/ && wget https://www.doxygen.nl/files/doxygen-1.13.2.linux.bin
     ln -s /usr/local/doxygen-1.13.2/bin/doxysearch.cgi /usr/local/bin/doxysearch.cgi && \
     ln -s /usr/local/doxygen-1.13.2/bin/doxywizard     /usr/local/bin/doxywizard
 
+RUN echo "ubuntu ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 USER ubuntu
 WORKDIR /home/ubuntu
 
