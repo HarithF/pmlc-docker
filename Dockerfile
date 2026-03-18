@@ -22,6 +22,7 @@ RUN apt-get update && \
         clang-21 \
         texlive \
         texlive-latex-extra \
+        lmodern \
         graphviz \
         ghostscript \
         python3-pandas \
