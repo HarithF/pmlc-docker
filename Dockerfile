@@ -38,7 +38,7 @@ RUN apt-get update && \
     ln -s /usr/bin/opt-21       /usr/local/bin/opt
 
 RUN cd /usr/local/ && wget https://www.doxygen.nl/files/doxygen-1.13.2.linux.bin.tar.gz -O doxygen.tar.gz && \
-    tar xf doxygen.tar.gz && && rm doxygen.tar.gz && \
+    tar xf doxygen.tar.gz && rm doxygen.tar.gz && \
     ln -s /usr/local/doxygen-1.13.2/bin/doxygen        /usr/local/bin/doxygen        && \
     ln -s /usr/local/doxygen-1.13.2/bin/doxyindexer    /usr/local/bin/doxyindexer    && \
     ln -s /usr/local/doxygen-1.13.2/bin/doxysearch.cgi /usr/local/bin/doxysearch.cgi && \
