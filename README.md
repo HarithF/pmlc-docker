@@ -56,16 +56,15 @@ The reviewers, however, asked for more data:
 
 For this reason, we have updated Fig. 6 with the following data:
 * A naive `std::set` implementation.
-* We compile all MimIR examples to LLVM and compare
+* We compile the MimIR benchmark programs to LLVM and compare
     * LLVM's dominance analysis against MimIR's free variable computation.
     * Inlining (both with and without additional optimizations that simulate MimIR's on‑the‑fly optimizations) against MimIR's $\beta$‑reduction.
 
 Finally, we include a small experiment based on a compiled regular expression.
 Its performance data is extracted by `bench.tex` and used to generate the paragraph in `reference.pdf` and `bench.pdf`.
 
-We measure LLVM performance by extracting the wall‑clock time from `opt`.
-These measurements are less precise than our MimIR benchmarks.
-As a result, the lower end of the LLVM‑related plots is either missing or noticeably *noisy*.
+These measurements are based on wall-clock time from `opt` and are therefore less precise than the MimIR microbenchmarks.
+Consequently, the lower end of the LLVM plots may be missing or appear noisy.
 
 You can inspect the update like this:
 ```sh
@@ -73,6 +72,7 @@ docker cp mimir-run:/home/ubuntu/mim/tex/reference.pdf .
 xdg-open reference.pdf
 ```
 Finally, we added in each plot a guide to better judge the asymptotic behavior of the plots in the double-log scale.
+Note that colors and styling differ from Fig. 6 in the paper to improve readability with the additional data series.
 
 #### Building
 
@@ -100,6 +100,7 @@ For this reason, the benchmark script provides a couple of options that drastica
 2. Fastest option: requires around 1 hour.
     * Less precision.
     * Measurements are only done up to $2^{10}$.
+    * This configuration is sufficient to reproduce the trends shown in figure.
    ```sh
    ./run_benchmarks.py
    ```
@@ -129,7 +130,6 @@ Each run of this script will build with the gathered data a new plot that you ca
 docker cp mimir-run:/home/ubuntu/mim/tex/bench.pdf .
 xdg-open bench.pdf
 ```
-Note that the colors and style changed compared to the original Fig. 6 in the paper.
 
 ##### Memory Constraints
 
