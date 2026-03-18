@@ -1,5 +1,7 @@
 # Artifact Evaluation: SSA without Dominance for Higher-Order Programs
 
+[TOC]
+
 ## Quick Reproduction (Recommended)
 
 ```sh
@@ -43,13 +45,12 @@ The y-axis depicts runtime in micro seconds.
 
 Each plot tests two different set implementations that are used to implement the algorithms above:
 * [immer](https://sinusoid.es/immer/): mutable and persistent data structures for C++ - value semantics at scale
-* an indexed trie: a new data structure presented in the paper
+* an *indexed trie*: a new data structure presented in the paper
 
 The reviewers, however, asked for more data:
 >   - Improvement of the benchmarks:
 >       - This should include some justification that the clever data structures used are necessary;
 >       - This should include a comparison with standard compilers, e.g. LLVM.
-
 
 For this reason, we have updated Fig. 6 with the following data:
 * A naive `std::set` implementation.
@@ -57,8 +58,10 @@ For this reason, we have updated Fig. 6 with the following data:
     * LLVM's dominance analysis against MimIR's free variable computation.
     * Inlining (both with and without additional optimizations that simulate MimIR's on‑the‑fly optimizations) against MimIR's $\beta$‑reduction.
 
+Finally, we included a small experiment using a compiled regular expression, whose performance data is extracted by `bench.tex` to generate the short paragraph on the other page of `reference.pdf` and `bench.pdf`.
+
 We measure LLVM performance by extracting the wall‑clock time from `opt`.
-These measurements are less precise than our native benchmarks.
+These measurements are less precise than our MimIR benchmarks.
 As a result, the lower end of the LLVM‑related plots is either missing or noticeably *noisy*.
 
 You can inspect the update like this:
