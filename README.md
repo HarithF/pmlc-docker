@@ -1,168 +1,110 @@
-# Artifact Evaluation: SSA without Dominance for Higher-Order Programs
+# MimIR KernelBench artifact (Docker)
 
-[TOC]
+Builds one image that contains everything needed to reproduce the KernelBench
+level-3 comparison of MimIR (mimir-frontend, LLVM and MLIR paths) against
+torch-mlir, and the pipeline that runs it (`benchmark/`).
 
-## Getting Started Guide
+The image reproduces the toolchain of the machine the results were produced
+on. That machine runs Manjaro (Arch-based), so the image is Arch Linux pinned to
+the **Arch Linux Archive snapshot of 2026-10-03**, whose packages match it
+exactly:
 
-```sh
-docker load < mimir.tar.gz            # load the image
-docker run -it --name mimir-run mimir # run the container named 'mimir-run'
-cd mim
-./build_all.sh
-./run_benchmarks.py                   # generates mim/tex/bench.pdf
-cd ../lambda-graph
-lake build                            # Lean development
-```
-This produces a reduced version of Fig. 6 in ~1 hour.
-The Lean build takes only a few minutes.
+| package | version (host = image) | used for |
+|---|---|---|
+| gcc | 16.2.1+r23+gd564253eb6c8 | LLVM/MLIR, MimIR (as on the host) |
+| clang / llvm / lld / compiler-rt | 23.1.1 | C drivers, MimIR's JIT, torch-mlir |
+| cmake / ninja | 4.4.4 / 1.13.2 | builds |
+| python | 3.14.7 | mimir-frontend venv |
+| glibc | 2.44+r50 | |
 
-### Resume Work
+Built from source on top of that, at pinned commits:
 
-If you exit the container, you can resume work using:
-```sh
-docker start mimir-run
-docker exec -it mimir-run /bin/bash
-```
+| component | version | notes |
+|---|---|---|
+| LLVM + MLIR | `068c6c5c0c8a` (23.0.0git) | host options: Release + assertions, no RTTI, X86;NVPTX, Python bindings; tests not built |
+| torch-mlir | `4cf2188eb848` | against that LLVM, Python 3.12.12 (as the host venv) |
+| PyTorch (torch-mlir side) | `2.14.0+cpu` | see below |
+| MimIR + plugins | the `mimir-frontend` submodule pin; plugins at the refs in `bootstrap_mimir.sh` | |
+| mimir-frontend | the copied checkout | |
 
-## Step-by-Step Instructions
+The LLVM commit is the one torch-mlir pins at that commit; the same
+`mlir-opt`/`opt`/`llc` build lowers and compiles all three variants, and is
+first on PATH, as on the host.
 
-### General Information
+Two differences from the host remain, both only in how torch-mlir is built:
+- **PyTorch:** torch-mlir `4cf2188eb848` names the nightly
+  `torch==2.14.0.dev20260719`, which the nightly index no longer serves. The
+  image uses the `2.14.0` release of that line instead.
+- **Compiler:** the host's torch-mlir was compiled with clang 22.1.8, which
+  can't sit next to clang 23.1.1 in the snapshot.
 
-The artifact consists of two parts:
-1. The research compiler IR *MimIR* that we used to create Fig. 6 in the paper.
-2. A Lean development *lambda-graph* that verifies all lemmas and theorems in the paper.
+Both only affect the exporter, and its output is verified to be identical (see
+"Verification").
 
-### MimIR
+## Build
 
-The original Fig. 6 in the paper consists of 3 x 3 plots:
-Each column benchmarks the implementation of one algorithm in the compiler:
-1. free variables computation
-2. $\beta$-reduction
-3. nesting tree construction
-Each row tests a synthetic program whose size is doubled with every tick on the x-axis (for this reason we use a double-log scale):
-1. Loop Cascade
-2. Acc. Loop Cascade
-3. Loop Nest
-The y-axis depicts runtime in micro seconds.
-
-Each plot tests two different set implementations that are used to implement the algorithms above:
-* [immer](https://sinusoid.es/immer/): mutable and persistent data structures for C++ - value semantics at scale
-* an *indexed trie*: a new data structure presented in the paper
-
-The reviewers, however, asked for more data:
->   - Improvement of the benchmarks:
->       - This should include some justification that the clever data structures used are necessary;
->       - This should include a comparison with standard compilers, e.g. LLVM.
-
-For this reason, we have updated Fig. 6 with the following data:
-* A naive `std::set` implementation.
-* We compile the MimIR benchmark programs to LLVM and compare
-    * LLVM's dominance analysis against MimIR's free variable computation.
-    * Inlining (both with and without additional optimizations that simulate MimIR's on‑the‑fly optimizations) against MimIR's $\beta$‑reduction.
-
-Finally, we include a small experiment based on a compiled regular expression.
-Its performance data is extracted by `bench.tex` and used to generate the paragraph in `reference.pdf` and `bench.pdf`.
-
-These measurements are based on wall-clock time from `opt` and are therefore less precise than the MimIR microbenchmarks.
-Consequently, the lower end of the LLVM plots may be missing or appear noisy.
-
-You can inspect the update like this:
-```sh
-docker cp mimir-run:/home/ubuntu/mim/tex/reference.pdf .
-xdg-open reference.pdf
-```
-Finally, we added in each plot a guide to better judge the asymptotic behavior of the plots in the double-log scale.
-Note that colors and styling differ from Fig. 6 in the paper to improve readability with the additional data series.
-
-#### Building
-
-Inside the docker image:
-```sh
-cd mim
-./build_all.sh
-```
-This takes around 10 minutes and only needs to be done once.
-
-Our fork of MimIR contains `#ifdef`s for the three different set implementations.
-For this reason, the build script will build three sets of binaries:
-* `~/mim/release_trie/bin`
-* `~/mim/release_immer/bin`
-* `~/mim/release_set/bin`
-
-#### Benchmarks
-
-Running the full benchmark suite requires 15+ hours on a modern computer.
-For this reason, the benchmark script provides a couple of options that drastically reduce the time.
-1. Print help:
-   ```sh
-   ./run_benchmarks.py -h
-   ```
-2. Fastest option: requires around 1 hour.
-    * Less precision.
-    * Measurements are only done up to $2^{10}$.
-    * This configuration is sufficient to reproduce the trends shown in figure.
-   ```sh
-   ./run_benchmarks.py
-   ```
-3. As above but includes the whole measurement range.
-    * Takes around 2 hours.
-   ```sh
-   ./run_benchmarks.py --all-iters
-   ```
-4. As above but all tests are run 9 times.
-    * min, max, and median will be computed and plotted
-    * Takes 9× as long as option 3.
-   ```sh
-   ./run_benchmarks.py --all-iters --runs
-   ```
-5. As above but includes 3 warm up runs before doing the actual measurements.
-    * Takes 14× as long as option 3.
-    ```sh
-   ./run_benchmarks.py --all-iters --runs --warmups
-   ```
-6. As above but will freshly generate the `*.ll` files.
-    * **Adds another ~2 hours**.
-    ```sh
-   ./run_benchmarks.py --all-iters --runs --warmups --remove-llvm
-   ```
-Each run of this script will build with the gathered data a new plot that you can inspect from outside of docker like this:
-```sh
-docker cp mimir-run:/home/ubuntu/mim/tex/bench.pdf .
-xdg-open bench.pdf
+```bash
+./build.sh            # prepare-repos.sh, then docker build -t mimir .
+./build.sh -n         # reuse the existing build context
+JOBS=12 LINK_JOBS=2 ./build.sh   # compile / link parallelism for LLVM + torch-mlir
 ```
 
-##### Memory Constraints
+`prepare-repos.sh` copies `../mimir-frontend` and `../benchmark` into the build
+context: sources and git metadata only, no build trees, virtualenvs or outputs.
+The image generates those itself:
+- Stage 1 clones and builds LLVM/MLIR and torch-mlir.
+- Stage 2 runs `bootstrap_mimir.sh`, which builds MimIR, fetches the plugins
+  and creates the Python 3.14 venv.
 
-The `immer` and `std::set` implementations eventually run out of memory (tested on a machine with 32GiB RAM).
-Furthermore, the runtime in the last row explodes around $2^{11}$.
-For this reason, some of the plots are capped and don't range all the way up to $2^{20}$.
-If you experience crashes with `--all-iters`, you are running out of memory and need to reduce the number of iterations of the respective test in the global `ITERS` variable in the `run_benchmarks.py` script.
-However, the reduced number of iterations (**without** `--all-iter`) are good enough to verify the trends of the plots.
+Local uncommitted changes in the two repos are included as they are.
 
-#### Documentation
+Requirements: network access (GitHub, the Arch Linux Archive, PyPI,
+download.pytorch.org), roughly 50 GB of free disk for the build (about 15 GB
+remain as the image), and time: LLVM, MLIR and torch-mlir take about an hour
+on 16 cores, the mimir-frontend bootstrap (including its PyTorch download)
+another half hour or so.
 
-The project documentation will also be built that you can inspect like this:
-```sh
-docker cp mimir-run:/home/ubuntu/mim/release_trie/html ./html
-xdg-open html/index.html
+## Run
+
+```bash
+./run.sh                         # (host) shell in a new container "mimir-run"
+# inside the container (working dir: ~/benchmark):
+./run.sh                         # export -> build -> report, all 36 models
+./run.sh all --only "1_MLP 4_LeNet5"
+./run.sh report                  # timings only, once built
 ```
 
-#### Reusability
+Results land in `~/benchmark/work/` (see `benchmark/README.md`); copy them out
+with `docker cp mimir-run:/home/bench/benchmark/work/reports .`.
+Resume a container with `docker start -ai mimir-run`.
 
-The build command above also builds the test suites that you can invoke like this from inside docker:
-```sh
-cd mim/release_trie
-make test # unit tests
-make lit  # lit test suite
+Timing runs should be pinned (`PIN_CPU`, default core 2) and, ideally, run with
+the host's CPU governor set to `performance`.
+
+## Layout
+
 ```
-You can find the `lit` tests in `mim/lit`.
-Feel free to poke around!
-
-### Lambda-Graph
-
-Enter the docker image and verify via:
-```sh
-cd lambda-graph
-lake build
+Dockerfile        stage 1: LLVM/MLIR + torch-mlir; stage 2: runtime + MimIR + benchmark
+prepare-repos.sh  copies ../mimir-frontend and ../benchmark into the context (gitignored)
+build.sh          prepare-repos + docker build
+run.sh            docker run wrapper
+save.sh           docker save -> mimir.tar.gz
 ```
-Check out `lambda-graph/README.md` for more information.
+
+## Verification
+
+- **torch 2.14.0 vs the pinned nightly:** all 50 level-3 models exported with
+  `2.14.0+cpu` (Python 3.12, same torch-mlir build, same `export_mlir.py`) are
+  byte-identical to the exports made with `2.14.0.dev20260719+cpu`: every
+  `.mlir` and every `.params.txt`, 50 of 50.
+- **torch-mlir built with clang 23.1.1 (image) vs 22.1.8 (host):** the 36
+  benchmark models exported inside the image are byte-identical to the host's
+  exports (`.mlir` and `.params.txt`).
+- **Toolchain inside the image:** gcc 16.2.1, clang 23.1.1, `opt`/`mlir-opt`
+  23.0.0git first on PATH, Python 3.14.7 -- as on the host.
+- **Pipeline inside the image:** `./run.sh all` on LeNet5 and MiniGPTBlock --
+  export, build and report -- passes; every variant matches the PyTorch
+  reference. On the host, the same pipeline passes on LeNet5, VisionTransformer,
+  SwinTransformerV2, MiniGPTBlock and ReLUSelfAttention, which between them
+  cover every special case (collapsed unit dims, libm math, integer buffers,
+  closure-captured parameters, parameters only torch-mlir passes).
