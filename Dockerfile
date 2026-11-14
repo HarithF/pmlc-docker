@@ -4,8 +4,8 @@
 # Arch Linux pinned to the 2026-10-03 archive snapshot, whose toolchain matches
 # the host exactly (gcc 16.2.1, clang 23.1.1, python 3.14.7). Built from source:
 #   stage 1  LLVM/MLIR and torch-mlir at pinned commits
-#   stage 2  MimIR + mimir-frontend, the tools from stage 1, benchmark/
-# Build context: prepare-repos.sh.
+#   stage 2  mimir-frontend (+ MimIR) and benchmark, cloned from GitHub, and
+#            the tools from stage 1
 
 ARG ARCH_SNAPSHOT=2026/10/03
 ARG LLVM_COMMIT=068c6c5c0c8a0555036a2ff09a99f486548e6e8d
@@ -14,6 +14,11 @@ ARG TORCH_MLIR_COMMIT=4cf2188eb84896772e771610eed44b3d49f0af80
 # release exports identically.
 ARG TORCH_VERSION=2.14.0
 ARG PYTHON_TORCH_MLIR=3.12.12
+# The repositories stage 2 clones (owner/name on GitHub, branch).
+ARG FRONTEND_REPO=HarithF/mimir-frontend
+ARG FRONTEND_REF=art-eval
+ARG BENCH_REPO=HarithF/mim_benchmark
+ARG BENCH_REF=main
 
 ##############################################################################
 # Base: Arch Linux at the pinned snapshot
@@ -103,6 +108,10 @@ RUN mkdir -p /opt/llvm/bin /opt/llvm/lib \
 # Stage 2: runtime image
 ##############################################################################
 FROM base
+ARG FRONTEND_REPO
+ARG FRONTEND_REF
+ARG BENCH_REPO
+ARG BENCH_REF
 
 COPY --from=toolchain /opt/llvm /opt/llvm
 COPY --from=toolchain /opt/python /opt/python
@@ -120,9 +129,15 @@ USER bench
 WORKDIR /home/bench
 
 # --- MimIR + mimir-frontend (bootstrap_mimir.sh; needs network) ---------------
-COPY --chown=bench:bench mimir-frontend/ mimir-frontend/
+# Each ADD fetches a branch's current head commit, so a push to the frontend or
+# to a plugin bootstrap fetches (refs as in bootstrap_mimir.sh) re-runs the clone.
+ADD https://api.github.com/repos/${FRONTEND_REPO}/commits/${FRONTEND_REF} /tmp/heads/frontend.json
+ADD https://api.github.com/repos/HarithF/mimir-torch-plugin/commits/art-eval /tmp/heads/torch.json
+ADD https://api.github.com/repos/hsqStephenZhang/mimir-runtime-plugin/commits/feat/ll-emit /tmp/heads/runtime.json
+ADD https://api.github.com/repos/HarithF/mim_mlir/commits/mimir-frontend-dev /tmp/heads/mim_mlir.json
 ARG MIMIR_BUILD_JOBS=8
-RUN cd mimir-frontend \
+RUN git clone -q --recursive --branch ${FRONTEND_REF} https://github.com/${FRONTEND_REPO}.git mimir-frontend \
+ && cd mimir-frontend \
  && MIMIR_BUILD_JOBS=${MIMIR_BUILD_JOBS} ./scripts/bootstrap_mimir.sh \
  && cmake --build MimIR/build -j ${MIMIR_BUILD_JOBS} \
  && uv run --no-sync python -c "import mim, mimir_frontend.backend; print('mimir-frontend ok')"
@@ -138,8 +153,9 @@ RUN $TORCH_MLIR_PY -c "import torch, torch_mlir; from torch_mlir import fx; prin
       ! ldd "$l" | grep -q "not found" || { ldd "$l"; exit 1; }; done && echo "runner utils ok"
 
 # --- benchmark pipeline ----------------------------------------------------------
-COPY --chown=bench:bench benchmark/ benchmark/
-RUN cd benchmark && for f in run.sh pipeline/*.sh scripts/*.sh; do bash -n "$f"; done \
+ADD https://api.github.com/repos/${BENCH_REPO}/commits/${BENCH_REF} /tmp/heads/benchmark.json
+RUN git clone -q --branch ${BENCH_REF} https://github.com/${BENCH_REPO}.git benchmark \
+ && cd benchmark && for f in run.sh pipeline/*.sh scripts/*.sh; do bash -n "$f"; done \
  && cd scripts && $PYTHON -c "import gen_data, gen_drivers, reporter, produce_refs, param_manifest; print('benchmark scripts ok')"
 
 WORKDIR /home/bench/benchmark

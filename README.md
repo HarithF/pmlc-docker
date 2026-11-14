@@ -24,8 +24,9 @@ Built from source on top of that, at pinned commits:
 | LLVM + MLIR | `068c6c5c0c8a` (23.0.0git) | host options: Release + assertions, no RTTI, X86;NVPTX, Python bindings; tests not built |
 | torch-mlir | `4cf2188eb848` | against that LLVM, Python 3.12.12 (as the host venv) |
 | PyTorch (torch-mlir side) | `2.14.0+cpu` | see below |
-| MimIR + plugins | the `mimir-frontend` submodule pin; plugins at the refs in `bootstrap_mimir.sh` | |
-| mimir-frontend | the copied checkout | |
+| mimir-frontend | `HarithF/mimir-frontend`, branch `art-eval` | cloned at build time |
+| MimIR + plugins | the frontend's submodule pin; plugins at the refs in `bootstrap_mimir.sh` | |
+| benchmark | `HarithF/mim_benchmark`, branch `main` | cloned at build time |
 
 The LLVM commit is the one torch-mlir pins at that commit; the same
 `mlir-opt`/`opt`/`llc` build lowers and compiles all three variants, and is
@@ -44,19 +45,20 @@ Both only affect the exporter, and its output is verified to be identical (see
 ## Build
 
 ```bash
-./build.sh            # prepare-repos.sh, then docker build -t mimir .
-./build.sh -n         # reuse the existing build context
-JOBS=12 LINK_JOBS=2 ./build.sh   # compile / link parallelism for LLVM + torch-mlir
+./build.sh                                   # docker build -t mimir .
+FRONTEND_REF=my-branch BENCH_REF=main ./build.sh   # other branches
+FRONTEND_REPO=someone/mimir-frontend ./build.sh    # or a fork
+JOBS=12 LINK_JOBS=2 ./build.sh               # compile / link parallelism
 ```
 
-`prepare-repos.sh` copies `../mimir-frontend` and `../benchmark` into the build
-context: sources and git metadata only, no build trees, virtualenvs or outputs.
-The image generates those itself:
+The image clones mimir-frontend and benchmark from GitHub, so it builds what is
+pushed, not local changes. Each repository's (and each plugin's) current head
+commit is fetched first, so after a push the next build re-clones exactly what
+changed and reuses the cached layers before it -- LLVM and torch-mlir are not
+rebuilt.
 - Stage 1 clones and builds LLVM/MLIR and torch-mlir.
-- Stage 2 runs `bootstrap_mimir.sh`, which builds MimIR, fetches the plugins
-  and creates the Python 3.14 venv.
-
-Local uncommitted changes in the two repos are included as they are.
+- Stage 2 clones mimir-frontend, runs its `bootstrap_mimir.sh` (MimIR, the
+  plugins, the Python 3.14 venv) and clones benchmark.
 
 Requirements: network access (GitHub, the Arch Linux Archive, PyPI,
 download.pytorch.org), roughly 50 GB of free disk for the build (about 15 GB
@@ -84,9 +86,8 @@ the host's CPU governor set to `performance`.
 ## Layout
 
 ```
-Dockerfile        stage 1: LLVM/MLIR + torch-mlir; stage 2: runtime + MimIR + benchmark
-prepare-repos.sh  copies ../mimir-frontend and ../benchmark into the context (gitignored)
-build.sh          prepare-repos + docker build
+Dockerfile        stage 1: LLVM/MLIR + torch-mlir; stage 2: mimir-frontend + benchmark
+build.sh          docker build (repositories and branches as build arguments)
 run.sh            docker run wrapper
 save.sh           docker save -> mimir.tar.gz
 ```

@@ -1,8 +1,3 @@
-# mimir-frontend/ and benchmark/ are copied in, with their .git (bootstrap
-# needs it); only this repo's own .git is excluded.
-/.git
-**/__pycache__
-**/*.pyc
-*.tar.gz
-benchmark/work
-*.log
+# The image clones its sources from GitHub; nothing from here is copied in.
+*
+!Dockerfile
