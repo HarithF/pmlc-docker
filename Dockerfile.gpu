@@ -1,0 +1,112 @@
+# GPU layer on top of the CPU image: the same toolchain, plus what TARGET=gpu
+# (mim_nvptx vs iree_cuda) needs. Nothing below rebuilds LLVM or MimIR.
+#
+#   /opt/cuda        ptxas, fatbinary, libdevice.10.bc and the libcuda link stub
+#                    (CUDA 13.0, from NVIDIA's pip wheels and apt repo; ~50 MB
+#                    instead of the full toolkit). The real libcuda.so.1 and
+#                    nvidia-smi come from the host driver at run time, via the
+#                    NVIDIA Container Toolkit (docker run --gpus all).
+#   /opt/iree-venv   torch (cpu) + iree-turbine + iree-base-{compiler,runtime}
+#                    for the IREE CUDA baseline (IREE_PY).
+#   ~/benchmark      at the GPU pipeline commit (TARGET=cpu|gpu|both).
+#   ~/mimir-frontend at the commit adding the opt-in nvptx target (Python only;
+#                    the MimIR submodule, with its gpu/nvptx plugins, is unchanged).
+#
+# Build:  docker build -f Dockerfile.gpu -t mimir:gpu .
+# Run:    docker run --gpus all -it mimir:gpu   (or: GPUS=all TAG=mimir:gpu ./run.sh)
+#         then e.g. ./run.sh --target gpu all --only "1_MLP 4_LeNet5"
+
+ARG BASE_IMAGE=zcombinator/mimir-ae:cpu-v1
+
+# CUDA 13.0 needs a host driver >= 580 and covers sm_75 .. sm_120.
+ARG NVCC_WHL_URL=https://files.pythonhosted.org/packages/71/8b/a546c12881fffeba927d810598987df25d74b8b241788c7db8dfc93b0173/nvidia_cuda_nvcc-13.0.88-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+ARG NVCC_WHL_SHA256=56fe502eb77625a12f25172caa3cdddb4e4c8ba2c8c17dba44b164761b380f03
+ARG NVVM_WHL_URL=https://files.pythonhosted.org/packages/15/b0/ee41e6d1108d959b5097163e7190c2d0f7857dea75606ce358f0275891b4/nvidia_nvvm-13.0.88-py3-none-manylinux2010_x86_64.manylinux_2_12_x86_64.whl
+ARG NVVM_WHL_SHA256=c5f41ffeb6466944a026dfa5317d7d85355c119bbec279205d22f1869d1054e0
+ARG DRIVER_DEV_DEB_URL=https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-driver-dev-13-0_13.0.88-1_amd64.deb
+ARG DRIVER_DEV_DEB_SHA256=3ffcc3fc69aa914629a97839aaf2b624508fbae9d87f187231795745a6be2550
+
+# IREE baseline. TODO: pin to the versions behind the paper's GPU numbers.
+ARG IREE_TURBINE_VERSION=3.9.0
+ARG IREE_COMPILER_VERSION=3.13.0
+ARG IREE_RUNTIME_VERSION=3.13.1
+
+# HarithF/mim_benchmark branch gpu, HarithF/mimir-frontend branch art-eval.
+ARG BENCH_GPU_COMMIT=e8f0bd3826241e62078b986ee1608b920282aa8f
+ARG FRONTEND_GPU_COMMIT=561d86d30a16c1b7b4e8fc19742904c8709af12d
+
+##############################################################################
+# CUDA bits, extracted in a throwaway stage
+##############################################################################
+FROM ${BASE_IMAGE} AS cuda
+ARG NVCC_WHL_URL
+ARG NVCC_WHL_SHA256
+ARG NVVM_WHL_URL
+ARG NVVM_WHL_SHA256
+ARG DRIVER_DEV_DEB_URL
+ARG DRIVER_DEV_DEB_SHA256
+USER root
+WORKDIR /tmp/cuda
+RUN set -eu \
+ && curl -fsSL -o nvcc.whl "$NVCC_WHL_URL" \
+ && curl -fsSL -o nvvm.whl "$NVVM_WHL_URL" \
+ && curl -fsSL -o driver-dev.deb "$DRIVER_DEV_DEB_URL" \
+ && printf '%s  %s\n' "$NVCC_WHL_SHA256" nvcc.whl "$NVVM_WHL_SHA256" nvvm.whl "$DRIVER_DEV_DEB_SHA256" driver-dev.deb \
+      | sha256sum -c - \
+ && bsdtar -xf nvcc.whl nvidia/cu13/bin/ptxas nvidia/cu13/bin/fatbinary \
+ && bsdtar -xf nvvm.whl nvidia/cu13/nvvm/libdevice/libdevice.10.bc \
+ && bsdtar -xOf driver-dev.deb 'data.tar*' | bsdtar -xf - ./usr/local/cuda-13.0/targets/x86_64-linux/lib/stubs/libcuda.so \
+ && install -Dm755 nvidia/cu13/bin/ptxas     /opt/cuda/bin/ptxas \
+ && install -Dm755 nvidia/cu13/bin/fatbinary /opt/cuda/bin/fatbinary \
+ && install -Dm644 nvidia/cu13/nvvm/libdevice/libdevice.10.bc /opt/cuda/nvvm/libdevice/libdevice.10.bc \
+ && install -Dm755 usr/local/cuda-13.0/targets/x86_64-linux/lib/stubs/libcuda.so /opt/cuda/lib64/stubs/libcuda.so \
+ && /opt/cuda/bin/ptxas --version | tail -2
+
+##############################################################################
+# GPU image
+##############################################################################
+FROM ${BASE_IMAGE}
+ARG IREE_TURBINE_VERSION
+ARG IREE_COMPILER_VERSION
+ARG IREE_RUNTIME_VERSION
+ARG BENCH_GPU_COMMIT
+ARG FRONTEND_GPU_COMMIT
+ARG TORCH_VERSION=2.14.0
+
+USER root
+COPY --from=cuda /opt/cuda /opt/cuda
+
+# A separate venv, so torch-mlir's /opt/torch-venv stays exactly as built.
+# uv searches --extra-index-url before --index-url, so the +cpu torch wheel
+# (only on download.pytorch.org) is found there; IREE comes from PyPI.
+RUN uv venv -q --python /opt/python/cpython-3.12.12-linux-x86_64-gnu/bin/python3.12 /opt/iree-venv \
+ && uv pip install -q --no-cache --python /opt/iree-venv/bin/python \
+      --index-url https://pypi.org/simple --extra-index-url https://download.pytorch.org/whl/cpu \
+      "torch==${TORCH_VERSION}+cpu" numpy \
+      "iree-turbine==${IREE_TURBINE_VERSION}" \
+      "iree-base-compiler==${IREE_COMPILER_VERSION}" \
+      "iree-base-runtime==${IREE_RUNTIME_VERSION}" \
+ && /opt/iree-venv/bin/python -c "import torch, iree.turbine, iree.runtime as rt; print('iree-venv: torch', torch.__version__, '| HAL drivers', rt.query_available_drivers())" \
+ && /opt/iree-venv/bin/iree-compile --version | head -1
+
+ENV CUDA_HOME=/opt/cuda \
+    PATH=/opt/cuda/bin:$PATH \
+    IREE_PY=/opt/iree-venv/bin/python
+
+USER bench
+WORKDIR /home/bench
+
+# Frontend: only Python changes on top of the CPU image's commit; the local
+# torch-cpu pin in pyproject.toml/uv.lock is kept (those files are untouched).
+RUN cd /home/bench/mimir-frontend \
+ && git fetch -q origin ${FRONTEND_GPU_COMMIT} \
+ && git checkout -q ${FRONTEND_GPU_COMMIT} \
+ && uv run --no-sync python -c "import mim, mimir_frontend.backend; print('mimir-frontend', '$(git rev-parse --short HEAD)', 'ok')"
+
+RUN cd /home/bench/benchmark \
+ && git fetch -q origin ${BENCH_GPU_COMMIT} \
+ && git checkout -q ${BENCH_GPU_COMMIT} \
+ && for f in run.sh pipeline/*.sh scripts/*.sh; do bash -n "$f"; done \
+ && echo "benchmark $(git rev-parse --short HEAD) ok"
+
+WORKDIR /home/bench/benchmark
