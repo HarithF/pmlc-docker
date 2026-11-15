@@ -15,10 +15,10 @@ ARG TORCH_MLIR_COMMIT=4cf2188eb84896772e771610eed44b3d49f0af80
 ARG TORCH_VERSION=2.14.0
 ARG PYTHON_TORCH_MLIR=3.12.12
 # The repositories stage 2 clones (owner/name on GitHub, branch).
-ARG FRONTEND_REPO=fodinabor/mimir-frontend
+ARG FRONTEND_REPO=HarithF/mimir-frontend
 ARG FRONTEND_REF=art-eval
-ARG BENCH_REPO=fodinabor/mim_benchmark
-ARG BENCH_REF=gpu
+ARG BENCH_REPO=HarithF/mim_benchmark
+ARG BENCH_REF=main
 
 ##############################################################################
 # Base: Arch Linux at the pinned snapshot

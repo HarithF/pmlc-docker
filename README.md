@@ -24,9 +24,9 @@ Built from source on top of that, at pinned commits:
 | LLVM + MLIR | `068c6c5c0c8a` (23.0.0git) | host options: Release + assertions, no RTTI, X86;NVPTX, Python bindings; tests not built |
 | torch-mlir | `4cf2188eb848` | against that LLVM, Python 3.12.12 (as the host venv) |
 | PyTorch (torch-mlir side) | `2.14.0+cpu` | see below |
-| mimir-frontend | `fodinabor/mimir-frontend`, branch `art-eval` | cloned at build time |
+| mimir-frontend | `HarithF/mimir-frontend`, branch `art-eval` | cloned at build time |
 | MimIR + plugins | the frontend's submodule pin; plugins at the refs in `bootstrap_mimir.sh` | |
-| benchmark | `fodinabor/mim_benchmark`, branch `gpu` | cloned at build time |
+| benchmark | `HarithF/mim_benchmark`, branch `main` | cloned at build time |
 
 The LLVM commit is the one torch-mlir pins at that commit; the same
 `mlir-opt`/`opt`/`llc` build lowers and compiles all three variants, and is
@@ -46,7 +46,7 @@ Both only affect the exporter, and its output is verified to be identical (see
 
 ```bash
 ./build.sh                                   # docker build -t mimir .
-FRONTEND_REF=my-branch BENCH_REF=main ./build.sh   # other branches
+FRONTEND_REF=my-branch BENCH_REF=my-branch ./build.sh   # other branches
 FRONTEND_REPO=someone/mimir-frontend ./build.sh    # or a fork
 JOBS=12 LINK_JOBS=2 ./build.sh               # compile / link parallelism
 ```
