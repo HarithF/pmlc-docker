@@ -2,7 +2,8 @@
 
 Builds one image that contains everything needed to reproduce the KernelBench
 level-3 comparison of MimIR (mimir-frontend, LLVM and MLIR paths) against
-torch-mlir, and the pipeline that runs it (`benchmark/`).
+torch-mlir, and the pipeline that runs it (`benchmark/`), as well as the line
+counts of the paper's Table 1 (`loc/`).
 
 The image reproduces the toolchain of the machine the results were produced
 on. That machine runs Manjaro (Arch-based), so the image is Arch Linux pinned to
@@ -27,6 +28,7 @@ Built from source on top of that, at pinned commits:
 | mimir-frontend | `HarithF/mimir-frontend`, branch `art-eval` | cloned at build time |
 | MimIR + plugins | the frontend's submodule pin; plugins at the refs in `bootstrap_mimir.sh` | |
 | benchmark | `HarithF/mim_benchmark`, branch `main` | cloned at build time |
+| Table 1 sources | llvm-project `904b9515757a`, `mimir/mimir` `21b15a3aa3` | sparse checkouts of `mlir/` and `src/mim/plug` only (~140 MB), read by `loc/count_loc.py` |
 
 The LLVM commit is the one torch-mlir pins at that commit; the same
 `mlir-opt`/`opt`/`llc` build lowers and compiles all three variants, and is
@@ -75,6 +77,8 @@ another half hour or so.
 ./run.sh                         # export -> build -> report, all 36 models
 ./run.sh all --only "1_MLP 4_LeNet5"
 ./run.sh report                  # timings only, once built
+# Table 1's line counts (takes seconds); -v lists the files of each row:
+cd ~/loc && ./count_loc.py --mlir llvm-project --mimir mimir --check
 ```
 
 Results land in `~/benchmark/work/` (see `benchmark/README.md`); copy them out
@@ -93,6 +97,8 @@ build.sh          docker build: Dockerfile, then Dockerfile.gpu on top; tag mimi
 run.sh            docker run wrapper
 save.sh           docker save -> mimir.tar.gz
 import.sh         docker load <- mimir.tar.gz
+loc/count_loc.py  Table 1's line counts; a copy of the paper repository's
+                  scripts/count_loc.py -- keep the two in sync
 ```
 
 ## Verification
@@ -112,3 +118,5 @@ import.sh         docker load <- mimir.tar.gz
   SwinTransformerV2, MiniGPTBlock and ReLUSelfAttention, which between them
   cover every special case (collapsed unit dims, libm math, integer buffers,
   closure-captured parameters, parameters only torch-mlir passes).
+- **Table 1:** `count_loc.py --check` on the sparse checkouts reproduces all 26
+  published values; the build runs it and fails on any mismatch.
