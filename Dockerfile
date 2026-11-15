@@ -15,10 +15,10 @@ ARG TORCH_MLIR_COMMIT=4cf2188eb84896772e771610eed44b3d49f0af80
 ARG TORCH_VERSION=2.14.0
 ARG PYTHON_TORCH_MLIR=3.12.12
 # The repositories stage 2 clones (owner/name on GitHub, branch).
-ARG FRONTEND_REPO=HarithF/mimir-frontend
+ARG FRONTEND_REPO=fodinabor/mimir-frontend
 ARG FRONTEND_REF=art-eval
-ARG BENCH_REPO=HarithF/mim_benchmark
-ARG BENCH_REF=main
+ARG BENCH_REPO=fodinabor/mim_benchmark
+ARG BENCH_REF=gpu
 
 ##############################################################################
 # Base: Arch Linux at the pinned snapshot
@@ -97,7 +97,8 @@ RUN cmake -G Ninja -S /opt/torch-mlir -B /opt/torch-mlir/build \
 RUN mkdir -p /opt/llvm/bin /opt/llvm/lib \
  && cp /opt/llvm-project/build/bin/mlir-opt /opt/llvm-project/build/bin/mlir-translate \
        /opt/llvm-project/build/bin/mlir-runner /opt/llvm-project/build/bin/opt \
-       /opt/llvm-project/build/bin/llc /opt/llvm-project/build/bin/FileCheck /opt/llvm/bin/ \
+       /opt/llvm-project/build/bin/llc /opt/llvm-project/build/bin/llvm-link \
+       /opt/llvm-project/build/bin/FileCheck /opt/llvm/bin/ \
  && cp -a /opt/llvm-project/build/lib/libmlir_c_runner_utils.so* \
           /opt/llvm-project/build/lib/libmlir_runner_utils.so* /opt/llvm/lib/ \
  && cp -rL /opt/torch-mlir/build/python_packages/torch_mlir /opt/torch-mlir-python \
@@ -136,7 +137,8 @@ ADD https://api.github.com/repos/HarithF/mimir-torch-plugin/commits/art-eval /tm
 ADD https://api.github.com/repos/hsqStephenZhang/mimir-runtime-plugin/commits/feat/ll-emit /tmp/heads/runtime.json
 ADD https://api.github.com/repos/HarithF/mim_mlir/commits/mimir-frontend-dev /tmp/heads/mim_mlir.json
 ARG MIMIR_BUILD_JOBS=8
-RUN git clone -q --recursive --branch ${FRONTEND_REF} https://github.com/${FRONTEND_REPO}.git mimir-frontend \
+RUN chmod -R 777 /home/bench \
+ && git clone -q --recursive --branch ${FRONTEND_REF} https://github.com/${FRONTEND_REPO}.git mimir-frontend \
  && cd mimir-frontend \
  && MIMIR_BUILD_JOBS=${MIMIR_BUILD_JOBS} ./scripts/bootstrap_mimir.sh \
  && cmake --build MimIR/build -j ${MIMIR_BUILD_JOBS} \

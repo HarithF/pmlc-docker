@@ -8,15 +8,18 @@
 #                    NVIDIA Container Toolkit (docker run --gpus all).
 #   /opt/iree-venv   torch (cpu) + iree-turbine + iree-base-{compiler,runtime}
 #                    for the IREE CUDA baseline (IREE_PY).
-#   ~/benchmark      at the GPU pipeline commit (TARGET=cpu|gpu|both).
-#   ~/mimir-frontend at the commit adding the opt-in nvptx target (Python only;
-#                    the MimIR submodule, with its gpu/nvptx plugins, is unchanged).
 #
-# Build:  docker build -f Dockerfile.gpu -t mimir:gpu .
-# Run:    docker run --gpus all -it mimir:gpu   (or: GPUS=all TAG=mimir:gpu ./run.sh)
+# mimir-frontend and the benchmark are used as the CPU image cloned them
+# (Dockerfile: FRONTEND_REPO/REF, BENCH_REPO/REF); so is the pinned llvm-link
+# in /opt/llvm/bin, which the nvptx backend needs.
+#
+# Build:  ./build.sh  -- builds Dockerfile, then this on top of it; tag: mimir
+#         (by hand: docker build -f Dockerfile.gpu --build-arg BASE_IMAGE=<cpu> .)
+# Run:    ./run.sh     (docker run --gpus all -it mimir)
 #         then e.g. ./run.sh --target gpu all --only "1_MLP 4_LeNet5"
 
-ARG BASE_IMAGE=zcombinator/mimir-ae:cpu-v1
+# The CPU image built from ./Dockerfile (build.sh tags it this way meanwhile).
+ARG BASE_IMAGE=mimir-build-cpu
 
 # CUDA 13.0 needs a host driver >= 580 and covers sm_75 .. sm_120.
 ARG NVCC_WHL_URL=https://files.pythonhosted.org/packages/71/8b/a546c12881fffeba927d810598987df25d74b8b241788c7db8dfc93b0173/nvidia_cuda_nvcc-13.0.88-py3-none-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
@@ -30,10 +33,6 @@ ARG DRIVER_DEV_DEB_SHA256=3ffcc3fc69aa914629a97839aaf2b624508fbae9d87f1872317957
 ARG IREE_TURBINE_VERSION=3.9.0
 ARG IREE_COMPILER_VERSION=3.13.0
 ARG IREE_RUNTIME_VERSION=3.13.1
-
-# HarithF/mim_benchmark branch gpu, HarithF/mimir-frontend branch art-eval.
-ARG BENCH_GPU_COMMIT=e8f0bd3826241e62078b986ee1608b920282aa8f
-ARG FRONTEND_GPU_COMMIT=561d86d30a16c1b7b4e8fc19742904c8709af12d
 
 ##############################################################################
 # CUDA bits, extracted in a throwaway stage
@@ -69,8 +68,6 @@ FROM ${BASE_IMAGE}
 ARG IREE_TURBINE_VERSION
 ARG IREE_COMPILER_VERSION
 ARG IREE_RUNTIME_VERSION
-ARG BENCH_GPU_COMMIT
-ARG FRONTEND_GPU_COMMIT
 ARG TORCH_VERSION=2.14.0
 
 USER root
@@ -87,26 +84,53 @@ RUN uv venv -q --python /opt/python/cpython-3.12.12-linux-x86_64-gnu/bin/python3
       "iree-base-compiler==${IREE_COMPILER_VERSION}" \
       "iree-base-runtime==${IREE_RUNTIME_VERSION}" \
  && /opt/iree-venv/bin/python -c "import torch, iree.turbine, iree.runtime as rt; print('iree-venv: torch', torch.__version__, '| HAL drivers', rt.query_available_drivers())" \
+ && /opt/iree-venv/bin/iree-compile --iree-hal-list-target-backends | grep -qw cuda \
  && /opt/iree-venv/bin/iree-compile --version | head -1
 
 ENV CUDA_HOME=/opt/cuda \
     PATH=/opt/cuda/bin:$PATH \
-    IREE_PY=/opt/iree-venv/bin/python
+    IREE_PY=/opt/iree-venv/bin/python \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 USER bench
 WORKDIR /home/bench
 
-# Frontend: only Python changes on top of the CPU image's commit; the local
-# torch-cpu pin in pyproject.toml/uv.lock is kept (those files are untouched).
-RUN cd /home/bench/mimir-frontend \
- && git fetch -q origin ${FRONTEND_GPU_COMMIT} \
- && git checkout -q ${FRONTEND_GPU_COMMIT} \
- && uv run --no-sync python -c "import mim, mimir_frontend.backend; print('mimir-frontend', '$(git rev-parse --short HEAD)', 'ok')"
-
-RUN cd /home/bench/benchmark \
- && git fetch -q origin ${BENCH_GPU_COMMIT} \
- && git checkout -q ${BENCH_GPU_COMMIT} \
- && for f in run.sh pipeline/*.sh scripts/*.sh; do bash -n "$f"; done \
- && echo "benchmark $(git rev-parse --short HEAD) ok"
+# Compile-only check (no GPU at build time): a model must come out as a host
+# .ll with an embedded fatbin. nvptx.emit only warns when a tool is missing and
+# writes a placeholder instead, so test for that explicitly. Loading the JIT .so
+# needs a libcuda.so.1: the stub stands in for this RUN only (never as ENV, it
+# would shadow the driver's libcuda that `docker run --gpus` injects).
+ARG GPU_CHECK_SM=86
+RUN test -x /opt/llvm/bin/llvm-link || { echo "base image lacks /opt/llvm/bin/llvm-link: rebuild it with ./build.sh" >&2; exit 1; } \
+ && mkdir -p /tmp/cudastub && ln -s /opt/cuda/lib64/stubs/libcuda.so /tmp/cudastub/libcuda.so.1 \
+ && cd /home/bench/mimir-frontend \
+ && LD_LIBRARY_PATH=/tmp/cudastub MIMIR_GPU_SM=${GPU_CHECK_SM} uv run --no-sync python - <<'EOF'
+import pathlib, tempfile, torch
+from mimir_frontend.backend import mimir_backend
+out = pathlib.Path(tempfile.mkdtemp())
+def capture(gm, xs):
+    mimir_backend(gm, xs, options={"target": "nvptx", "debug_dir": str(out), "cache": False})
+    return gm.forward
+m = torch.nn.Sequential(torch.nn.Linear(16, 8), torch.nn.GELU(), torch.nn.Linear(8, 4)).eval()
+with torch.no_grad():
+    torch.compile(m, backend=capture, fullgraph=True)(torch.randn(2, 16))
+host = [p for p in out.glob("mimir_graph_*.ll") if not p.name.endswith("_dev.ll")]
+assert len(host) == 1 and list(out.glob("*.so")), sorted(p.name for p in out.iterdir())
+text = host[0].read_text()
+assert "@.fatbin = private constant" in text and "YOUR_FATBIN" not in text, "fatbin not embedded"
+print("nvptx toolchain ok:", host[0].name, f"{len(text)} bytes")
+EOF
 
 WORKDIR /home/bench/benchmark
+
+CMD ["/bin/bash", "-c", "cat <<'EOF'\n\
+KernelBench level-3 on NVIDIA GPUs: MimIR (nvptx) vs IREE (cuda) -- started with --gpus all?\n\
+\n\
+  nvidia-smi                        the GPU the benchmark will use\n\
+  ./run.sh --target gpu all         the GPU pipeline (TARGET=cpu|gpu|both)\n\
+  ./run.sh                          the CPU pipeline still works as in the cpu image\n\
+\n\
+See README.md.\n\
+EOF\n\
+exec /bin/bash"]

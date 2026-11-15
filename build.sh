@@ -1,6 +1,7 @@
 #!/bin/bash
-# build.sh -- build the image (tag: mimir). mimir-frontend and benchmark are
-# cloned from GitHub at build time; a push to either re-clones it.
+# build.sh -- build the image (tag: mimir): the CPU image from Dockerfile, then
+# the GPU layer from Dockerfile.gpu on top of it. mimir-frontend and benchmark
+# are cloned from GitHub at build time; a push to either re-clones it.
 #
 #   ./build.sh [TAG]
 #   FRONTEND_REF=my-branch BENCH_REF=my-branch ./build.sh     # other branches
@@ -11,6 +12,9 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 TAG="${1:-mimir}"
+# The CPU image is tagged only while the GPU layer is built on it; untagged
+# afterwards, its layers stay (as the parent of TAG) and keep the build cache.
+CPU_TAG=mimir-build-cpu
 args=()
 for v in FRONTEND_REPO FRONTEND_REF BENCH_REPO BENCH_REF; do
   [[ -n "${!v:-}" ]] && args+=(--build-arg "$v=${!v}")
@@ -21,5 +25,7 @@ docker build \
   --build-arg LINK_JOBS="${LINK_JOBS:-2}" \
   --build-arg MIMIR_BUILD_JOBS="${MIMIR_BUILD_JOBS:-8}" \
   "${args[@]}" \
-  -t "$TAG" .
+  -t "$CPU_TAG" .
+docker build -f Dockerfile.gpu --build-arg BASE_IMAGE="$CPU_TAG" -t "$TAG" .
+docker rmi "$CPU_TAG" >/dev/null
 echo "==> image ready: $TAG"

@@ -24,9 +24,9 @@ Built from source on top of that, at pinned commits:
 | LLVM + MLIR | `068c6c5c0c8a` (23.0.0git) | host options: Release + assertions, no RTTI, X86;NVPTX, Python bindings; tests not built |
 | torch-mlir | `4cf2188eb848` | against that LLVM, Python 3.12.12 (as the host venv) |
 | PyTorch (torch-mlir side) | `2.14.0+cpu` | see below |
-| mimir-frontend | `HarithF/mimir-frontend`, branch `art-eval` | cloned at build time |
+| mimir-frontend | `fodinabor/mimir-frontend`, branch `art-eval` | cloned at build time |
 | MimIR + plugins | the frontend's submodule pin; plugins at the refs in `bootstrap_mimir.sh` | |
-| benchmark | `HarithF/mim_benchmark`, branch `main` | cloned at build time |
+| benchmark | `fodinabor/mim_benchmark`, branch `gpu` | cloned at build time |
 
 The LLVM commit is the one torch-mlir pins at that commit; the same
 `mlir-opt`/`opt`/`llc` build lowers and compiles all three variants, and is
@@ -70,6 +70,7 @@ another half hour or so.
 
 ```bash
 ./run.sh                         # (host) shell in a new container "mimir-run"
+                                 #   with --gpus all if nvidia-smi sees a GPU
 # inside the container (working dir: ~/benchmark):
 ./run.sh                         # export -> build -> report, all 36 models
 ./run.sh all --only "1_MLP 4_LeNet5"
@@ -87,9 +88,11 @@ the host's CPU governor set to `performance`.
 
 ```
 Dockerfile        stage 1: LLVM/MLIR + torch-mlir; stage 2: mimir-frontend + benchmark
-build.sh          docker build (repositories and branches as build arguments)
+Dockerfile.gpu    GPU layer on the CPU image: CUDA bits, IREE venv, nvptx check
+build.sh          docker build: Dockerfile, then Dockerfile.gpu on top; tag mimir
 run.sh            docker run wrapper
 save.sh           docker save -> mimir.tar.gz
+import.sh         docker load <- mimir.tar.gz
 ```
 
 ## Verification
