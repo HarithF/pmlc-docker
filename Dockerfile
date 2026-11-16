@@ -56,7 +56,7 @@ RUN uv pip install --no-cache "nanobind>=2.9,<3.0" "pybind11>=2.10" "PyYAML>=5.4
       --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple \
       --index-strategy unsafe-best-match
 
-# --- LLVM/MLIR at the commit torch-mlir pins (host options; no tests) ----------
+# --- LLVM/MLIR at the commit torch-mlir pins (Release, no assertions; no tests) --
 RUN git init -q /opt/llvm-project \
  && git -C /opt/llvm-project fetch -q --depth 1 https://github.com/llvm/llvm-project.git ${LLVM_COMMIT} \
  && git -C /opt/llvm-project checkout -q FETCH_HEAD
@@ -66,7 +66,7 @@ RUN cmake -G Ninja -S /opt/llvm-project/llvm -B /opt/llvm-project/build \
       -DLLVM_PARALLEL_LINK_JOBS=${LINK_JOBS} \
       -DLLVM_ENABLE_PROJECTS=mlir \
       -DLLVM_TARGETS_TO_BUILD="X86;NVPTX" \
-      -DLLVM_ENABLE_ASSERTIONS=ON \
+      -DLLVM_ENABLE_ASSERTIONS=OFF \
       -DLLVM_ENABLE_RTTI=OFF \
       -DLLVM_INCLUDE_TESTS=OFF -DMLIR_INCLUDE_TESTS=OFF \
       -DLLVM_INCLUDE_BENCHMARKS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF \
