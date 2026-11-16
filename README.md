@@ -2,7 +2,8 @@
 
 Builds one image that contains everything needed to reproduce the KernelBench
 level-3 comparison of MimIR (mimir-frontend, LLVM and MLIR paths) against
-torch-mlir, and the pipeline that runs it (`benchmark/`).
+torch-mlir on the CPU and, on a machine with an NVIDIA GPU, of MimIR's NVPTX path against
+IREE, and the pipeline that runs it (`benchmark/`).
 
 The image reproduces the toolchain of the machine the results were produced
 on. That machine runs Manjaro (Arch-based), so the image is Arch Linux pinned to
@@ -72,13 +73,14 @@ another half hour or so.
 ./run.sh                         # (host) shell in a new container "mimir-run"
                                  #   with --gpus all if nvidia-smi sees a GPU
 # inside the container (working dir: ~/benchmark):
-./run.sh                         # export -> build -> report, all 36 models
+./run.sh                         # export -> build -> report, the 35 models in models.txt
 ./run.sh all --only "1_MLP 4_LeNet5"
+./run.sh --target gpu            # the same on the GPU (mim_nvptx vs iree_cuda), in work_gpu/
 ./run.sh report                  # timings only, once built
 ```
 
-Results land in `~/benchmark/work/` (see `benchmark/README.md`); copy them out
-with `docker cp mimir-run:/home/bench/benchmark/work/reports .`.
+Results land in `~/benchmark/work/` (GPU: `~/benchmark/work_gpu/`; see `benchmark/README.md`);
+copy them out with `docker cp mimir-run:/home/bench/benchmark/work/reports .`.
 Resume a container with `docker start -ai mimir-run`.
 
 Timing runs should be pinned (`PIN_CPU`, default core 2) and, ideally, run with
