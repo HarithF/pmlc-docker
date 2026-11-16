@@ -2,7 +2,8 @@
 
 Builds one image that contains everything needed to reproduce the KernelBench
 level-3 comparison of MimIR (mimir-frontend, LLVM and MLIR paths) against
-torch-mlir, and the pipeline that runs it (`benchmark/`), as well as the line
+torch-mlir on the CPU and, on a machine with an NVIDIA GPU, of MimIR's NVPTX path against
+IREE, and the pipeline that runs it (`benchmark/`), as well as the line
 counts of the paper's Table 1 (`loc/`).
 
 The image reproduces the toolchain of the machine the results were produced
@@ -22,7 +23,7 @@ Built from source on top of that, at pinned commits:
 
 | component | version | notes |
 |---|---|---|
-| LLVM + MLIR | `068c6c5c0c8a` (23.0.0git) | host options: Release + assertions, no RTTI, X86;NVPTX, Python bindings; tests not built |
+| LLVM + MLIR | `068c6c5c0c8a` (23.0.0git) | Release without assertions, no RTTI, X86;NVPTX, Python bindings; tests not built |
 | torch-mlir | `4cf2188eb848` | against that LLVM, Python 3.12.12 (as the host venv) |
 | PyTorch (torch-mlir side) | `2.14.0+cpu` | see below |
 | mimir-frontend | `HarithF/mimir-frontend`, branch `art-eval` | cloned at build time |
@@ -74,15 +75,16 @@ another half hour or so.
 ./run.sh                         # (host) shell in a new container "mimir-run"
                                  #   with --gpus all if nvidia-smi sees a GPU
 # inside the container (working dir: ~/benchmark):
-./run.sh                         # export -> build -> report, all 36 models
+./run.sh                         # export -> build -> report, the 35 models in models.txt
 ./run.sh all --only "1_MLP 4_LeNet5"
+./run.sh --target gpu            # the same on the GPU (mim_nvptx vs iree_cuda), in work_gpu/
 ./run.sh report                  # timings only, once built
 # Table 1's line counts (takes seconds); -v lists the files of each row:
 cd ~/loc && ./count_loc.py --mlir llvm-project --mimir mimir --check
 ```
 
-Results land in `~/benchmark/work/` (see `benchmark/README.md`); copy them out
-with `docker cp mimir-run:/home/bench/benchmark/work/reports .`.
+Results land in `~/benchmark/work/` (GPU: `~/benchmark/work_gpu/`; see `benchmark/README.md`);
+copy them out with `docker cp mimir-run:/home/bench/benchmark/work/reports .`.
 Resume a container with `docker start -ai mimir-run`.
 
 Timing runs should be pinned (`PIN_CPU`, default core 2) and, ideally, run with

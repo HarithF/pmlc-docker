@@ -29,10 +29,10 @@ ARG NVVM_WHL_SHA256=c5f41ffeb6466944a026dfa5317d7d85355c119bbec279205d22f1869d10
 ARG DRIVER_DEV_DEB_URL=https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-driver-dev-13-0_13.0.88-1_amd64.deb
 ARG DRIVER_DEV_DEB_SHA256=3ffcc3fc69aa914629a97839aaf2b624508fbae9d87f187231795745a6be2550
 
-# IREE baseline. TODO: pin to the versions behind the paper's GPU numbers.
+# IREE baseline, at the versions behind the GPU results (benchmark docs/results_gpu.md).
 ARG IREE_TURBINE_VERSION=3.9.0
-ARG IREE_COMPILER_VERSION=3.13.0
-ARG IREE_RUNTIME_VERSION=3.13.1
+ARG IREE_COMPILER_VERSION=3.14.0
+ARG IREE_RUNTIME_VERSION=3.14.0
 
 ##############################################################################
 # CUDA bits, extracted in a throwaway stage
