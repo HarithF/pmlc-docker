@@ -5,7 +5,7 @@
 # the host exactly (gcc 16.2.1, clang 23.1.1, python 3.14.7). Built from source:
 #   stage 1  LLVM/MLIR and torch-mlir at pinned commits
 #   stage 2  mimir-frontend (+ MimIR) and benchmark, cloned from GitHub, and
-#            the tools from stage 1
+#            the tools from stage 1; the sources Table 1 counts (loc/)
 
 ARG ARCH_SNAPSHOT=2026/10/03
 ARG LLVM_COMMIT=068c6c5c0c8a0555036a2ff09a99f486548e6e8d
@@ -19,6 +19,10 @@ ARG FRONTEND_REPO=HarithF/mimir-frontend
 ARG FRONTEND_REF=art-eval
 ARG BENCH_REPO=HarithF/mim_benchmark
 ARG BENCH_REF=main
+# The revisions whose sources loc/count_loc.py counts for the paper's Table 1.
+ARG LOC_MLIR_COMMIT=904b9515757ab8b3d22095d455a044c4b33dc447
+ARG LOC_MIMIR_REPO=mimir/mimir
+ARG LOC_MIMIR_COMMIT=21b15a3aa32c538ec2068271625d830e93d2f167
 
 ##############################################################################
 # Base: Arch Linux at the pinned snapshot
@@ -160,6 +164,29 @@ RUN git clone -q --branch ${BENCH_REF} https://github.com/${BENCH_REPO}.git benc
  && cd benchmark && for f in run.sh pipeline/*.sh scripts/*.sh; do bash -n "$f"; done \
  && cd scripts && $PYTHON -c "import gen_data, gen_drivers, reporter, produce_refs, param_manifest; print('benchmark scripts ok')"
 
+# --- Table 1: lines of code (loc/) ------------------------------------------------
+# count_loc.py (a copy of the paper repository's scripts/count_loc.py) counts
+# linalg against MimIR's tensor, btensor and affine plugins. It reads sources
+# only, so sparse, blobless checkouts of mlir/ and src/mim/plug suffice (~140 MB).
+# Last in the image, so a change here rebuilds nothing else; --check fails the
+# build if a count differs from the paper.
+ARG LOC_MLIR_COMMIT
+ARG LOC_MIMIR_REPO
+ARG LOC_MIMIR_COMMIT
+RUN mkdir loc && cd loc \
+ && git init -q llvm-project \
+ && git -C llvm-project remote add origin https://github.com/llvm/llvm-project.git \
+ && git -C llvm-project sparse-checkout set mlir \
+ && git -C llvm-project fetch -q --depth 1 --filter=blob:none origin ${LOC_MLIR_COMMIT} \
+ && git -C llvm-project checkout -q FETCH_HEAD \
+ && git init -q mimir \
+ && git -C mimir remote add origin https://github.com/${LOC_MIMIR_REPO}.git \
+ && git -C mimir sparse-checkout set src/mim/plug \
+ && git -C mimir fetch -q --depth 1 --filter=blob:none origin ${LOC_MIMIR_COMMIT} \
+ && git -C mimir checkout -q FETCH_HEAD
+COPY --chown=bench:bench --chmod=755 loc/count_loc.py /home/bench/loc/count_loc.py
+RUN cd loc && ./count_loc.py --mlir llvm-project --mimir mimir --check
+
 WORKDIR /home/bench/benchmark
 CMD ["/bin/bash", "-c", "cat <<'EOF'\n\
 KernelBench level-3: MimIR (LLVM, MLIR) vs torch-mlir\n\
@@ -171,5 +198,6 @@ KernelBench level-3: MimIR (LLVM, MLIR) vs torch-mlir\n\
   ./run.sh all --only \"1_MLP 4_LeNet5\" a subset\n\
 \n\
 Outputs: work/ (models/NN_Model/bin/, reports/<run_id>/timing.csv). See README.md.\n\
+Table 1 (lines of code): cd ~/loc && ./count_loc.py --mlir llvm-project --mimir mimir --check\n\
 EOF\n\
 exec /bin/bash"]

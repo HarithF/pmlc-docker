@@ -131,6 +131,7 @@ KernelBench level-3 on NVIDIA GPUs: MimIR (nvptx) vs IREE (cuda) -- started with
   ./run.sh --target gpu all         the GPU pipeline (TARGET=cpu|gpu|both)\n\
   ./run.sh                          the CPU pipeline still works as in the cpu image\n\
 \n\
+Table 1 (lines of code): cd ~/loc && ./count_loc.py --mlir llvm-project --mimir mimir --check\n\
 See README.md.\n\
 EOF\n\
 exec /bin/bash"]

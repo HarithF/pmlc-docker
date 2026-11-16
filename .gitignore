@@ -2,3 +2,4 @@
 mimir.tar.gz
 *.log
 __pycache__/
+GPU

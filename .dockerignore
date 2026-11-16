@@ -1,3 +1,4 @@
-# The image clones its sources from GitHub; nothing from here is copied in.
+# The image clones its sources from GitHub; only the line-count script is copied in.
 *
 !Dockerfile
+!loc/count_loc.py
